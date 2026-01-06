@@ -1,7 +1,7 @@
-// #![cfg_attr(
-//     all(feature = "wgpu", not(feature = "term"), windows),
-//     windows_subsystem = "windows"
-// )]
+#![cfg_attr(
+    all(feature = "wgpu", not(feature = "term"), windows),
+    windows_subsystem = "windows"
+)]
 #![allow(dead_code)]
 #[cfg(feature = "term")]
 pub(crate) use rat_salsa;
