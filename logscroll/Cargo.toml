@@ -1,0 +1,51 @@
+[package]
+name = "logscroll"
+version = "1.0.0"
+edition = "2024"
+authors = ["thscharler <thscharler@gmail.com>"]
+description = "watch the logs scroll by"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/logscroll"
+readme = "readme.md"
+keywords = ["log-file", "tui"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore"]
+
+[features]
+default = ["term"]
+#wgpu = []
+wgpu = ["dep:rat-salsa-wgpu", "dep:winit"]
+term = ["dep:rat-salsa"]
+
+[dependencies]
+log = "0.4"
+crossbeam = "0.8"
+anyhow = "1.0"
+cli-clipboard = "0.4"
+configparser = { version = "3.1", features = ["indexmap"] }
+dirs = "6.0"
+fern = "0.7"
+regex-cursor = "0.1.5"
+ropey = "1.6.1"
+unicode-segmentation = "1.11"
+winit = { version = "0.30", optional = true }
+
+ratatui = "0.30.0"
+crossterm = { version = "0.29.0" }
+
+rat-salsa = { version = "4.0", path = "../../rat-salsa/rat-salsa", features = ["dialog_widgets"], optional = true }
+rat-salsa-wgpu = { version = "1.0", path = "../../rat-salsa-wgpu", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
+#rat-salsa-wgpu = { version = "1.0", git = "https://github.com/thscharler/rat-salsa-wgpu", branch = "remastered", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
+rat-widget = { version = "3.0", path = "../../rat-salsa/rat-widget", features = ["user_directories"] }
+rat-theme4 = { version = "4.5", path = "../../rat-salsa/rat-theme4" }
+
+
+[[bin]]
+name = "logsw"
+path = "src/main.rs"
+required-features = ["wgpu"]
+
+[[bin]]
+name = "logs"
+path = "src/main.rs"
+required-features = ["term"]
