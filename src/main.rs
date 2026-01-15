@@ -12,9 +12,11 @@ use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
 use crossterm::event::Event;
 use dirs::config_dir;
-use log::{debug, warn};
+use log::debug;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
 use rat_salsa::CursorStyle;
+#[cfg(all(feature = "wgpu", not(feature = "term")))]
+use rat_salsa::WindowBounds;
 use rat_salsa::event::QuitEvent;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
 use rat_salsa::event_type::convert_crossterm::ConvertCrossterm;
@@ -33,13 +35,13 @@ use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::text::HasScreenCursor;
-use rat_widget::text::clipboard::{Clipboard, ClipboardError, set_global_clipboard};
+use rat_widget::text::clipboard::cli::CliClipboard;
+use rat_widget::text::clipboard::set_global_clipboard;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::widgets::StatefulWidget;
 use ropey::Rope;
-use std::cell::RefCell;
 use std::env::args;
 use std::fs;
 use std::fs::create_dir_all;
@@ -92,8 +94,7 @@ fn main() -> Result<(), Error> {
         run_config = run_config.window_icon(IMG.into(), 64, 64);
         run_config = run_config.window_title(format!("log/scroll {:?}", current));
         if let Some(window) = config.window {
-            run_config = run_config.window_position(window.0);
-            run_config = run_config.window_size(window.1);
+            run_config = run_config.window_bounds(window);
         }
         if let Some(font) = &config.font {
             run_config = run_config.font_family(font);
@@ -136,7 +137,7 @@ pub struct LogScrollConfig {
     #[cfg(all(feature = "wgpu", not(feature = "term")))]
     font_size: f64,
     #[cfg(all(feature = "wgpu", not(feature = "term")))]
-    window: Option<(winit::dpi::Position, winit::dpi::Size)>,
+    window: Option<WindowBounds>,
 }
 
 fn config_theme(config: &LogScrollConfig) -> SalsaTheme {
@@ -168,7 +169,7 @@ fn load_config() -> Result<LogScrollConfig, Error> {
             #[cfg(all(feature = "wgpu", not(feature = "term")))]
             let window = ini
                 .get("default", "window")
-                .map(|v| parse_win_rect(&v))
+                .map(|v| v.parse::<WindowBounds>().ok())
                 .flatten();
 
             return Ok(LogScrollConfig {
@@ -194,35 +195,6 @@ fn load_config() -> Result<LogScrollConfig, Error> {
         #[cfg(all(feature = "wgpu", not(feature = "term")))]
         window: None,
     })
-}
-
-#[cfg(all(feature = "wgpu", not(feature = "term")))]
-fn parse_win_rect(s: &str) -> Option<(winit::dpi::Position, winit::dpi::Size)> {
-    let mut it = s.split(['x', '+']);
-    let Some(w) = it.next() else {
-        return None;
-    };
-    let width = w.parse().ok()?;
-
-    let Some(h) = it.next() else {
-        return None;
-    };
-    let height = h.parse().ok()?;
-
-    let Some(x) = it.next() else {
-        return None;
-    };
-    let x = x.parse().ok()?;
-
-    let Some(y) = it.next() else {
-        return None;
-    };
-    let y = y.parse().ok()?;
-
-    let size = winit::dpi::Size::Physical(winit::dpi::PhysicalSize { width, height });
-    let pos = winit::dpi::Position::Physical(winit::dpi::PhysicalPosition { x, y });
-
-    Some((pos, size))
 }
 
 fn store_config(ctx: &GlobalState, cfg: &LogScrollConfig) -> Result<(), Error> {
@@ -254,18 +226,7 @@ fn store_config(ctx: &GlobalState, cfg: &LogScrollConfig) -> Result<(), Error> {
         #[cfg(all(feature = "wgpu", not(feature = "term")))]
         ini.set("default", "font-size", Some(ctx.font_size().to_string()));
         #[cfg(all(feature = "wgpu", not(feature = "term")))]
-        {
-            let wsize = ctx.window().inner_size();
-            let wpos = ctx.window().outer_position()?;
-            ini.set(
-                "default",
-                "window",
-                Some(format!(
-                    "{}x{}+{}+{}",
-                    wsize.width, wsize.height, wpos.x, wpos.y
-                )),
-            );
-        }
+        ini.set("default", "window", Some(ctx.window_bounds().to_string()));
 
         ini.write(config)?;
 
@@ -1229,36 +1190,6 @@ fn setup_logging(test: bool) -> Result<(), Error> {
             .apply()?;
     }
     Ok(())
-}
-
-#[derive(Debug, Default, Clone)]
-struct CliClipboard {
-    clip: RefCell<String>,
-}
-
-impl Clipboard for CliClipboard {
-    fn get_string(&self) -> Result<String, ClipboardError> {
-        match cli_clipboard::get_contents() {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                warn!("{:?}", e);
-                Ok(self.clip.borrow().clone())
-            }
-        }
-    }
-
-    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
-        let mut clip = self.clip.borrow_mut();
-        *clip = s.to_string();
-
-        match cli_clipboard::set_contents(s.to_string()) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                warn!("{:?}", e);
-                Err(ClipboardError)
-            }
-        }
-    }
 }
 
 static HELP_TEXT: &str = r#"
