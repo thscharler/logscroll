@@ -13,7 +13,6 @@ exclude = [".idea/*", ".gitignore"]
 
 [features]
 default = ["term"]
-#wgpu = []
 wgpu = ["dep:rat-salsa-wgpu", "dep:winit"]
 term = ["dep:rat-salsa"]
 
@@ -35,7 +34,7 @@ crossterm = { version = "0.29.0" }
 
 rat-salsa = { version = "4.0", path = "../rat-salsa/rat-salsa", features = ["dialog_widgets"], optional = true }
 rat-salsa-wgpu = { version = "1.0", path = "../rat-salsa-wgpu", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
-#rat-salsa-wgpu = { version = "1.0", git = "https://github.com/thscharler/rat-salsa-wgpu", branch = "remastered", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
+#rat-salsa-wgpu = { version = "1.0", git = "https://github.com/thscharler/rat-salsa-wgpu", features = ["fallback_symbol_font", "fallback_emoji_font"], optional = true }
 rat-widget = { version = "3.0", path = "../rat-salsa/rat-widget", features = ["user_directories", "cli-clipboard"] }
 rat-theme4 = { version = "4.5", path = "../rat-salsa/rat-theme4" }
 

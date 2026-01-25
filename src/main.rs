@@ -14,7 +14,7 @@ use crossterm::event::Event;
 use dirs::config_dir;
 use log::debug;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
-use rat_salsa::CursorStyle;
+use rat_salsa::cursor::CursorStyle;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
 use rat_salsa::WindowBounds;
 use rat_salsa::event::QuitEvent;
@@ -464,7 +464,7 @@ pub fn error(
 // main application code
 mod logscroll {
     #[cfg(all(feature = "wgpu", not(feature = "term")))]
-    use crate::rat_salsa::font_data::FontData;
+    use crate::rat_salsa::font::FontData;
     use crate::rat_salsa::tasks::{Cancel, Liveness};
     use crate::rat_salsa::timer::TimerHandle;
     use crate::rat_salsa::{Control, SalsaContext};
