@@ -19,7 +19,7 @@ use rat_salsa::cursor::CursorStyle;
 use rat_salsa::WindowBounds;
 use rat_salsa::event::QuitEvent;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
-use rat_salsa::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa::events::ConvertCrossterm;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
 use rat_salsa::poll::PollBlink;
 #[cfg(feature = "term")]
