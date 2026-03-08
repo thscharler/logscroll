@@ -14,9 +14,9 @@ use crossterm::event::Event;
 use dirs::config_dir;
 use log::debug;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
-use rat_salsa::cursor::CursorStyle;
-#[cfg(all(feature = "wgpu", not(feature = "term")))]
 use rat_salsa::WindowBounds;
+#[cfg(all(feature = "wgpu", not(feature = "term")))]
+use rat_salsa::cursor::CursorStyle;
 use rat_salsa::event::QuitEvent;
 #[cfg(all(feature = "wgpu", not(feature = "term")))]
 use rat_salsa::events::ConvertCrossterm;
@@ -81,7 +81,7 @@ fn main() -> Result<(), Error> {
 
     let config = load_config()?;
 
-    let mut run_config;
+    let run_config;
     #[cfg(all(feature = "wgpu", not(feature = "term")))]
     {
         run_config = RunConfig::new(ConvertCrossterm::new())?
