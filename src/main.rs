@@ -81,7 +81,7 @@ fn main() -> Result<(), Error> {
 
     let config = load_config()?;
 
-    let run_config;
+    let mut run_config;
     #[cfg(all(feature = "wgpu", not(feature = "term")))]
     {
         run_config = RunConfig::new(ConvertCrossterm::new())?
@@ -482,7 +482,7 @@ mod logscroll {
     use rat_widget::scrolled::Scroll;
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::table::selection::RowSelection;
-    use rat_widget::table::{Table, TableContext, TableData, TableState};
+    use rat_widget::table2::{Table, TableContext, TableState};
     use rat_widget::text::{TextPosition, impl_screen_cursor, upos_type};
     use rat_widget::text_input::{TextInput, TextInputState};
     use rat_widget::textarea::{TextArea, TextAreaState, TextWrap};
@@ -635,11 +635,19 @@ mod logscroll {
         Table::new()
             .vscroll(v_scroll)
             .styles(ctx.theme.style(WidgetStyle::TABLE))
-            .data(FindData {
-                theme: &ctx.theme,
-                text: &state.logtext,
-                start_line: state.start_line,
-                data: &state.find_matches,
+            .data(&state.find_matches)
+            .widths([Constraint::Fill(1)])
+            .row_height(|_, _| 2)
+            .render_cell(0, |v, area, buf, tctx| {
+                render_finddata(
+                    &state.logtext,
+                    state.start_line,
+                    v,
+                    area,
+                    buf,
+                    tctx,
+                    &ctx.theme,
+                )
             })
             .render(l2[2], buf, &mut state.find_table);
 
@@ -653,110 +661,86 @@ mod logscroll {
         Ok(())
     }
 
-    struct FindData<'a> {
-        theme: &'a SalsaTheme,
-        text: &'a TextAreaState,
+    fn render_finddata(
+        text: &TextAreaState,
         start_line: upos_type,
-        data: &'a [(usize, usize, usize)],
-    }
+        data: &(usize, usize, usize),
+        area: Rect,
+        buf: &mut Buffer,
+        _ctx: &TableContext,
+        theme: &SalsaTheme,
+    ) {
+        let line = text.byte_pos(data.0);
 
-    impl<'a> FindData<'a> {
-        fn color(&self, n: usize) -> Style {
-            match n {
-                0 => self.theme.p.orange(6),
-                1 => self.theme.p.yellow(6),
-                2 => self.theme.p.green(6),
-                3 => self.theme.p.bluegreen(6),
-                4 => self.theme.p.cyan(6),
-                5 => self.theme.p.blue(6),
-                6 => self.theme.p.deepblue(6),
-                7 => self.theme.p.purple(6),
-                8 => self.theme.p.magenta(6),
-                _ => self.theme.p.redpink(6),
+        let line_byte = text.byte_at(TextPosition::new(0, line.y));
+        let data_start = data.0 - line_byte.start;
+        let data_end = data.1 - line_byte.start;
+
+        let line_text = text.line_at(line.y);
+        let line_prefix = &line_text[..data_start];
+        let line_match = &line_text[data_start..data_end];
+        let line_suffix = &line_text[data_end..];
+
+        let mut prefix_len = line_prefix.graphemes(true).count();
+        let match_len = line_match.graphemes(true).count();
+        let mut suffix_len = line_suffix.graphemes(true).count();
+        let mut area_width = area.width as usize;
+
+        if prefix_len + match_len + suffix_len > area_width {
+            area_width = area_width.saturating_sub(match_len);
+
+            if suffix_len > area_width / 2 && prefix_len > area_width / 2 {
+                prefix_len = area_width / 2;
+                suffix_len = area_width / 2;
+            } else if prefix_len > area_width / 2 {
+                prefix_len = area_width - suffix_len;
+            } else if suffix_len > area_width / 2 {
+                suffix_len = area_width - prefix_len;
+            } else {
+                // nice
             }
         }
+
+        let line_prefix = line_prefix
+            .graphemes(true)
+            .rev()
+            .take(prefix_len)
+            .collect::<String>();
+        let line_prefix = line_prefix.graphemes(true).rev().collect::<String>();
+
+        let line_suffix = line_suffix
+            .graphemes(true)
+            .take(suffix_len)
+            .collect::<String>();
+
+        let pos_txt = format!("\u{2316} {}:{}", line.x, start_line + line.y);
+
+        let l0 = Line::from_iter([
+            Span::from(pos_txt), //
+        ]);
+        let l1 = Line::from_iter([
+            Span::from(line_prefix),
+            Span::from(line_match).style(find_color(theme, data.2)),
+            Span::from(line_suffix),
+        ])
+        .style(Style::reset());
+
+        l0.render(Rect::new(area.x, area.y, area.width, 1), buf);
+        l1.render(Rect::new(area.x, area.y + 1, area.width, 1), buf);
     }
 
-    impl<'a> TableData<'a> for FindData<'a> {
-        fn rows(&self) -> usize {
-            self.data.len()
-        }
-
-        fn row_height(&self, _: usize) -> u16 {
-            2
-        }
-
-        fn widths(&self) -> Vec<Constraint> {
-            vec![Constraint::Fill(1)]
-        }
-
-        fn render_cell(
-            &self,
-            _ctx: &TableContext,
-            _column: usize,
-            row: usize,
-            area: Rect,
-            buf: &mut Buffer,
-        ) {
-            let data = self.data[row].clone();
-
-            let line = self.text.byte_pos(data.0);
-
-            let line_byte = self.text.byte_at(TextPosition::new(0, line.y));
-            let data_start = data.0 - line_byte.start;
-            let data_end = data.1 - line_byte.start;
-
-            let line_text = self.text.line_at(line.y);
-            let line_prefix = &line_text[..data_start];
-            let line_match = &line_text[data_start..data_end];
-            let line_suffix = &line_text[data_end..];
-
-            let mut prefix_len = line_prefix.graphemes(true).count();
-            let match_len = line_match.graphemes(true).count();
-            let mut suffix_len = line_suffix.graphemes(true).count();
-            let mut area_width = area.width as usize;
-
-            if prefix_len + match_len + suffix_len > area_width {
-                area_width = area_width.saturating_sub(match_len);
-
-                if suffix_len > area_width / 2 && prefix_len > area_width / 2 {
-                    prefix_len = area_width / 2;
-                    suffix_len = area_width / 2;
-                } else if prefix_len > area_width / 2 {
-                    prefix_len = area_width - suffix_len;
-                } else if suffix_len > area_width / 2 {
-                    suffix_len = area_width - prefix_len;
-                } else {
-                    // nice
-                }
-            }
-
-            let line_prefix = line_prefix
-                .graphemes(true)
-                .rev()
-                .take(prefix_len)
-                .collect::<String>();
-            let line_prefix = line_prefix.graphemes(true).rev().collect::<String>();
-
-            let line_suffix = line_suffix
-                .graphemes(true)
-                .take(suffix_len)
-                .collect::<String>();
-
-            let pos_txt = format!("\u{2316} {}:{}", line.x, self.start_line + line.y);
-
-            let l0 = Line::from_iter([
-                Span::from(pos_txt), //
-            ]);
-            let l1 = Line::from_iter([
-                Span::from(line_prefix),
-                Span::from(line_match).style(self.color(data.2)),
-                Span::from(line_suffix),
-            ])
-            .style(Style::reset());
-
-            l0.render(Rect::new(area.x, area.y, area.width, 1), buf);
-            l1.render(Rect::new(area.x, area.y + 1, area.width, 1), buf);
+    fn find_color(theme: &SalsaTheme, n: usize) -> Style {
+        match n {
+            0 => theme.p.orange(6),
+            1 => theme.p.yellow(6),
+            2 => theme.p.green(6),
+            3 => theme.p.bluegreen(6),
+            4 => theme.p.cyan(6),
+            5 => theme.p.blue(6),
+            6 => theme.p.deepblue(6),
+            7 => theme.p.purple(6),
+            8 => theme.p.magenta(6),
+            _ => theme.p.redpink(6),
         }
     }
 
