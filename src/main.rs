@@ -135,7 +135,7 @@ pub struct LogScrollConfig {
     #[cfg(all(feature = "wgpu", not(feature = "term")))]
     font: Option<String>,
     #[cfg(all(feature = "wgpu", not(feature = "term")))]
-    font_size: f64,
+    font_size: u32,
     #[cfg(all(feature = "wgpu", not(feature = "term")))]
     window: Option<WindowBounds>,
 }
@@ -165,7 +165,7 @@ fn load_config() -> Result<LogScrollConfig, Error> {
                 .get("default", "font-size")
                 .unwrap_or("22".to_string())
                 .parse()
-                .unwrap_or(22.0);
+                .unwrap_or(22);
             #[cfg(all(feature = "wgpu", not(feature = "term")))]
             let window = ini
                 .get("default", "window")
@@ -191,7 +191,7 @@ fn load_config() -> Result<LogScrollConfig, Error> {
         #[cfg(all(feature = "wgpu", not(feature = "term")))]
         font: None,
         #[cfg(all(feature = "wgpu", not(feature = "term")))]
-        font_size: 22.0,
+        font_size: 22,
         #[cfg(all(feature = "wgpu", not(feature = "term")))]
         window: None,
     })
@@ -463,8 +463,6 @@ pub fn error(
 
 // main application code
 mod logscroll {
-    #[cfg(all(feature = "wgpu", not(feature = "term")))]
-    use crate::rat_salsa::font::FontData;
     use crate::rat_salsa::tasks::{Cancel, Liveness};
     use crate::rat_salsa::timer::TimerHandle;
     use crate::rat_salsa::{Control, SalsaContext};
@@ -472,6 +470,8 @@ mod logscroll {
     use anyhow::Error;
     use crossbeam::channel::Sender;
     use log::debug;
+    #[cfg(all(feature = "wgpu", not(feature = "term")))]
+    use rat_salsa_wgpu::font::installed_mono_fonts;
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
     use rat_widget::event::{
@@ -1013,7 +1013,7 @@ mod logscroll {
                     #[cfg(all(feature = "wgpu", not(feature = "term")))]
                     ct_event!(keycode press CONTROL-F(8)) => {
                         let font = ctx.font_family();
-                        let installed = FontData.installed_fonts();
+                        let installed = installed_mono_fonts();
 
                         let idx = installed.iter().position(|v| v == &font);
                         let new_idx = if let Some(idx) = idx {
@@ -1025,7 +1025,7 @@ mod logscroll {
                         } else {
                             0
                         };
-                        ctx.set_font_family(installed[new_idx].as_str());
+                        _ = ctx.set_font_family(installed[new_idx].as_str());
                         ctx.queue_event(LogScrollEvent::StoreCfg);
                         ctx.queue_event(LogScrollEvent::Status(0, installed[new_idx].clone()));
                         Control::Changed
