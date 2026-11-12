@@ -13,20 +13,20 @@ use configparser::ini::Ini;
 use crossterm::event::Event;
 use dirs::config_dir;
 use log::debug;
-#[cfg(all(feature = "wgpu", not(feature = "term")))]
+#[cfg(feature = "wgpu")]
 use rat_salsa::WindowBounds;
-#[cfg(all(feature = "wgpu", not(feature = "term")))]
+#[cfg(feature = "wgpu")]
 use rat_salsa::cursor::CursorStyle;
 use rat_salsa::event::QuitEvent;
-#[cfg(all(feature = "wgpu", not(feature = "term")))]
-use rat_salsa::events::ConvertCrossterm;
-#[cfg(all(feature = "wgpu", not(feature = "term")))]
+#[cfg(feature = "wgpu")]
 use rat_salsa::poll::PollBlink;
 #[cfg(feature = "term")]
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::poll::{PollQuit, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
+#[cfg(feature = "wgpu")]
+use rat_salsa_wgpu::event::{WindowEvent, WindowEventState, winit_to_crossterm_event};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
@@ -81,16 +81,14 @@ fn main() -> Result<(), Error> {
 
     let config = load_config()?;
 
-    let mut run_config;
-    #[cfg(all(feature = "wgpu", not(feature = "term")))]
-    {
-        run_config = RunConfig::new(ConvertCrossterm::new())?
+    #[cfg(feature = "wgpu")]
+    let run_config = {
+        let mut run_config = RunConfig::new()?
             .poll(PollBlink::default())
             .poll(PollTimers::new())
             .poll(PollTasks::new(2))
             .poll(PollQuit);
         run_config = run_config.cursor_style(CursorStyle::BoldBar);
-
         run_config = run_config.window_icon(IMG.into(), 64, 64);
         run_config = run_config.window_title(format!("log/scroll {:?}", current));
         if let Some(window) = config.window {
@@ -100,15 +98,14 @@ fn main() -> Result<(), Error> {
             run_config = run_config.font_family(font);
         }
         run_config = run_config.font_size(config.font_size);
-    }
+        run_config
+    };
     #[cfg(feature = "term")]
-    {
-        run_config = RunConfig::default()?
-            .poll(PollCrossterm)
-            .poll(PollTimers::default())
-            .poll(PollTasks::new(2))
-            .poll(PollQuit);
-    }
+    let run_config = RunConfig::default()?
+        .poll(PollCrossterm)
+        .poll(PollTimers::default())
+        .poll(PollTasks::new(2))
+        .poll(PollQuit);
 
     let theme = config_theme(&config);
     let mut global = GlobalState::new(config, theme);
@@ -132,11 +129,11 @@ fn main() -> Result<(), Error> {
 pub struct LogScrollConfig {
     split_pos: u16,
     theme: String,
-    #[cfg(all(feature = "wgpu", not(feature = "term")))]
+    #[cfg(feature = "wgpu")]
     font: Option<String>,
-    #[cfg(all(feature = "wgpu", not(feature = "term")))]
+    #[cfg(feature = "wgpu")]
     font_size: u32,
-    #[cfg(all(feature = "wgpu", not(feature = "term")))]
+    #[cfg(feature = "wgpu")]
     window: Option<WindowBounds>,
 }
 
@@ -158,15 +155,15 @@ fn load_config() -> Result<LogScrollConfig, Error> {
 
             let split_pos: u16 = ini.get("default", "split").unwrap_or("25".into()).parse()?;
             let theme = ini.get("default", "theme").unwrap_or_default();
-            #[cfg(all(feature = "wgpu", not(feature = "term")))]
+            #[cfg(feature = "wgpu")]
             let font = ini.get("default", "font");
-            #[cfg(all(feature = "wgpu", not(feature = "term")))]
+            #[cfg(feature = "wgpu")]
             let font_size = ini
                 .get("default", "font-size")
                 .unwrap_or("22".to_string())
                 .parse()
                 .unwrap_or(22);
-            #[cfg(all(feature = "wgpu", not(feature = "term")))]
+            #[cfg(feature = "wgpu")]
             let window = ini
                 .get("default", "window")
                 .map(|v| v.parse::<WindowBounds>().ok())
@@ -175,11 +172,11 @@ fn load_config() -> Result<LogScrollConfig, Error> {
             return Ok(LogScrollConfig {
                 split_pos,
                 theme: theme.into(),
-                #[cfg(all(feature = "wgpu", not(feature = "term")))]
+                #[cfg(feature = "wgpu")]
                 font,
-                #[cfg(all(feature = "wgpu", not(feature = "term")))]
+                #[cfg(feature = "wgpu")]
                 font_size,
-                #[cfg(all(feature = "wgpu", not(feature = "term")))]
+                #[cfg(feature = "wgpu")]
                 window,
             });
         }
@@ -188,11 +185,11 @@ fn load_config() -> Result<LogScrollConfig, Error> {
     Ok(LogScrollConfig {
         split_pos: 25,
         theme: Default::default(),
-        #[cfg(all(feature = "wgpu", not(feature = "term")))]
+        #[cfg(feature = "wgpu")]
         font: None,
-        #[cfg(all(feature = "wgpu", not(feature = "term")))]
+        #[cfg(feature = "wgpu")]
         font_size: 22,
-        #[cfg(all(feature = "wgpu", not(feature = "term")))]
+        #[cfg(feature = "wgpu")]
         window: None,
     })
 }
@@ -221,11 +218,11 @@ fn store_config(ctx: &GlobalState, cfg: &LogScrollConfig) -> Result<(), Error> {
 
         ini.set("default", "split", Some(cfg.split_pos.to_string()));
         ini.set("default", "theme", Some(cfg.theme.clone()));
-        #[cfg(all(feature = "wgpu", not(feature = "term")))]
+        #[cfg(feature = "wgpu")]
         ini.set("default", "font", Some(ctx.font_family()));
-        #[cfg(all(feature = "wgpu", not(feature = "term")))]
+        #[cfg(feature = "wgpu")]
         ini.set("default", "font-size", Some(ctx.font_size().to_string()));
-        #[cfg(all(feature = "wgpu", not(feature = "term")))]
+        #[cfg(feature = "wgpu")]
         ini.set("default", "window", Some(ctx.window_bounds().to_string()));
 
         ini.write(config)?;
@@ -287,6 +284,15 @@ impl From<QuitEvent> for LogScrollEvent {
     }
 }
 
+#[cfg(feature = "wgpu")]
+impl TryFrom<(&WindowEvent, &WindowEventState)> for LogScrollEvent {
+    type Error = ();
+
+    fn try_from(value: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(value).map(|v| Self::Event(v))
+    }
+}
+
 impl From<Event> for LogScrollEvent {
     fn from(value: Event) -> Self {
         Self::Event(value)
@@ -321,7 +327,7 @@ pub fn render(
     ])
     .split(area);
 
-    #[cfg(all(feature = "wgpu", not(feature = "term")))]
+    #[cfg(feature = "wgpu")]
     {
         let style = ctx.theme.style_style(Style::CONTAINER_BASE);
         ctx.set_bg_color(style.bg.unwrap_or_default());
@@ -470,7 +476,7 @@ mod logscroll {
     use anyhow::Error;
     use crossbeam::channel::Sender;
     use log::debug;
-    #[cfg(all(feature = "wgpu", not(feature = "term")))]
+    #[cfg(feature = "wgpu")]
     use rat_salsa_wgpu::font::installed_mono_fonts;
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
@@ -1010,7 +1016,7 @@ mod logscroll {
                         ctx.queue_event(LogScrollEvent::Status(0, ctx.theme.name().into()));
                         Control::Changed
                     }
-                    #[cfg(all(feature = "wgpu", not(feature = "term")))]
+                    #[cfg(feature = "wgpu")]
                     ct_event!(keycode press CONTROL-F(8)) => {
                         let font = ctx.font_family();
                         let installed = installed_mono_fonts();
