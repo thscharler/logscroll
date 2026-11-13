@@ -2,11 +2,7 @@
     all(feature = "wgpu", not(feature = "term"), windows),
     windows_subsystem = "windows"
 )]
-#![allow(dead_code)]
-#[cfg(feature = "term")]
-pub(crate) use rat_salsa;
-#[cfg(all(feature = "wgpu", not(feature = "term")))]
-pub(crate) use rat_salsa_wgpu as rat_salsa;
+pub(crate) use rat_salsa_switch as rat_salsa;
 
 use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
@@ -19,14 +15,14 @@ use rat_salsa::WindowBounds;
 use rat_salsa::cursor::CursorStyle;
 use rat_salsa::event::QuitEvent;
 #[cfg(feature = "wgpu")]
+use rat_salsa::event::{WindowEvent, WindowEventState, winit_to_crossterm_event};
+#[cfg(feature = "wgpu")]
 use rat_salsa::poll::PollBlink;
 #[cfg(feature = "term")]
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::poll::{PollQuit, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
-#[cfg(feature = "wgpu")]
-use rat_salsa_wgpu::event::{WindowEvent, WindowEventState, winit_to_crossterm_event};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
@@ -49,6 +45,7 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
+#[cfg(feature = "wgpu")]
 static IMG: &'static [u8] = include_bytes!("lumber-ico.raw");
 
 fn main() -> Result<(), Error> {
@@ -469,6 +466,8 @@ pub fn error(
 
 // main application code
 mod logscroll {
+    #[cfg(feature = "wgpu")]
+    use crate::rat_salsa::font::installed_mono_fonts;
     use crate::rat_salsa::tasks::{Cancel, Liveness};
     use crate::rat_salsa::timer::TimerHandle;
     use crate::rat_salsa::{Control, SalsaContext};
@@ -476,8 +475,6 @@ mod logscroll {
     use anyhow::Error;
     use crossbeam::channel::Sender;
     use log::debug;
-    #[cfg(feature = "wgpu")]
-    use rat_salsa_wgpu::font::installed_mono_fonts;
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
     use rat_widget::event::{
