@@ -13,8 +13,8 @@ exclude = [".idea/*", ".gitignore"]
 
 [features]
 default = []
-wgpu = ["rat-salsa-switch/wgpu"]
-term = ["rat-salsa-switch/term"]
+wgpu = ["rat-salsa-wgpu"]
+term = ["rat-salsa"]
 
 [dependencies]
 log = "0.4"
@@ -30,7 +30,8 @@ unicode-segmentation = "1.11"
 ratatui = "0.30.0"
 crossterm = { version = "0.29.0" }
 
-rat-salsa-switch = { version = "0.1", path = "../rat-salsa-switch", features = [] }
+rat-salsa = { version = "4.0", features = [], optional = true }
+rat-salsa-wgpu = { version = "1.0", features = [], optional = true }
 rat-widget = { version = "3.0", features = ["user_directories", "cli-clipboard"] }
 rat-theme4 = { version = "4.5" }
 

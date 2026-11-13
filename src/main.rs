@@ -2,7 +2,10 @@
     all(feature = "wgpu", not(feature = "term"), windows),
     windows_subsystem = "windows"
 )]
-pub(crate) use rat_salsa_switch as rat_salsa;
+#[cfg(feature = "term")]
+pub(crate) use rat_salsa;
+#[cfg(feature = "wgpu")]
+pub(crate) use rat_salsa_wgpu as rat_salsa;
 
 use anyhow::{Error, anyhow};
 use configparser::ini::Ini;
@@ -12,7 +15,7 @@ use log::debug;
 #[cfg(feature = "wgpu")]
 use rat_salsa::WindowBounds;
 #[cfg(feature = "wgpu")]
-use rat_salsa::cursor::CursorStyle;
+use rat_salsa::backend::cursor::CursorStyle;
 use rat_salsa::event::QuitEvent;
 #[cfg(feature = "wgpu")]
 use rat_salsa::event::{WindowEvent, WindowEventState, winit_to_crossterm_event};
@@ -467,7 +470,7 @@ pub fn error(
 // main application code
 mod logscroll {
     #[cfg(feature = "wgpu")]
-    use crate::rat_salsa::font::installed_mono_fonts;
+    use crate::rat_salsa::backend::font::installed_mono_fonts;
     use crate::rat_salsa::tasks::{Cancel, Liveness};
     use crate::rat_salsa::timer::TimerHandle;
     use crate::rat_salsa::{Control, SalsaContext};
