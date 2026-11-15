@@ -19,8 +19,6 @@ use rat_salsa::backend::cursor::CursorStyle;
 use rat_salsa::event::QuitEvent;
 #[cfg(feature = "wgpu")]
 use rat_salsa::event::{WindowEvent, WindowEventState, winit_to_crossterm_event};
-#[cfg(feature = "wgpu")]
-use rat_salsa::poll::PollBlink;
 #[cfg(feature = "term")]
 use rat_salsa::poll::PollCrossterm;
 use rat_salsa::poll::{PollQuit, PollTasks, PollTimers};
@@ -84,7 +82,6 @@ fn main() -> Result<(), Error> {
     #[cfg(feature = "wgpu")]
     let run_config = {
         let mut run_config = RunConfig::new()?
-            .poll(PollBlink::default())
             .poll(PollTimers::new())
             .poll(PollTasks::new(2))
             .poll(PollQuit);
