@@ -11,6 +11,8 @@ keywords = ["log-file", "tui"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints]
+
 [features]
 default = []
 wgpu = ["rat-salsa-wgpu"]
